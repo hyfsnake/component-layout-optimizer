@@ -42,7 +42,8 @@ h1, h2, p { margin: 0; }
   gap: 18px;
   margin-bottom: 27px;
 }
-.presets { display: grid; grid-template-columns: repeat(4, auto); gap: 6px; }
+.presets { display: grid; grid-template-columns: repeat(5, auto); align-items: center; gap: 6px; }
+.presets-label { padding-inline-end: 6px; color: var(--muted); font-size: 0.875rem; font-weight: 650; white-space: nowrap; }
 .brand { display: flex; align-items: center; gap: 15px; }
 .brand-mark {
   width: 52px;
@@ -79,7 +80,7 @@ h2 { font-size: 1.3125rem; font-weight: 720; letter-spacing: -.022em; }
 .hint { margin-top: 10px; line-height: 1.55; }
 .target-row, .stock-head, .stock-row { display: grid; align-items: center; gap: 7px; }
 .target-table { container-type: inline-size; }
-.target-row { grid-template-columns: max-content minmax(74px, 1fr) minmax(146px, 2fr) minmax(80px, 1fr); }
+.target-row { grid-template-columns: max-content minmax(80px, 1fr) minmax(146px, 2fr) minmax(80px, 1fr); }
 .target-group { min-width: 0; margin: 0; padding: 4px 6px 7px; border: 1px solid #dce4ee; border-radius: 8px; background: #f7f9fc; }
 .target-group legend { padding: 0 3px; font-size: 0.875rem; font-weight: 700; color: #344965; }
 .target-group.required { border-color: #ccdafa; background: #f2f6ff; }
@@ -125,7 +126,8 @@ select {
 }
 .setting-input::-webkit-inner-spin-button, .setting-input::-webkit-outer-spin-button { appearance: none; }
 .setting-input::placeholder { color: #6a7890; opacity: 1; }
-.target-caption { display: block; margin-bottom: 3px; color: #52627a; font-size: 0.8125rem; font-weight: 650; }
+.target-caption, .target-group.minimum .target-field::before { display: block; margin-bottom: 3px; font-size: 0.8125rem; }
+.target-caption { color: #52627a; font-weight: 650; }
 .number-control {
   display: grid;
   grid-template-columns: minmax(20px, .7fr) minmax(18px, 1fr) minmax(20px, .7fr);
@@ -146,11 +148,14 @@ select {
 .number-step:hover:not(:disabled) { background: #e7efff; }
 .number-step:disabled { color: #8d9bb1; }
 .number-control :focus-visible { outline-offset: -2px; }
+@container (min-width: 351px) {
+  .target-group.minimum .target-field::before { content: ""; height: 1lh; }
+}
 @container (min-width: 461px) {
   .color-name { flex-direction: column; gap: 3px; }
 }
 @container (min-width: 351px) and (max-width: 460px) {
-  .target-row { grid-template-columns: minmax(74px, 1fr) minmax(146px, 2fr) minmax(80px, 1fr); }
+  .target-row { grid-template-columns: minmax(80px, 1fr) minmax(146px, 2fr) minmax(80px, 1fr); }
   .color-name { grid-column: 1 / -1; }
 }
 @container (max-width: 350px) {
@@ -391,6 +396,7 @@ select {
   .brand-mark { width: 37px; height: 37px; flex-basis: 37px; border-radius: 10px; padding: 7px; gap: 3px; }
   .page-head { flex-wrap: wrap; }
   .presets { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .presets-label { grid-column: 1 / -1; }
   .tile-level, .tile-glyph { font-size: clamp(1.25rem, 5.6vw, 1.75rem); }
 }
 @media (max-width: 480px) {
@@ -424,7 +430,8 @@ select {
         <p>配置组件目标和增幅器库存，计算 5 × 5 棋盘方案。</p>
       </div>
     </div>
-    <div class="presets" role="group" aria-label="组件目标预设">
+    <div class="presets" role="group" aria-labelledby="presets-label">
+      <span class="presets-label" id="presets-label">查看示例</span>
       <button type="button" data-preset="healthIdle" class="button secondary">体力挂机</button>
       <button type="button" data-preset="healthArena" class="button secondary">体力jjc</button>
       <button type="button" data-preset="attackIdle" class="button secondary">攻击挂机</button>
@@ -462,10 +469,10 @@ select {
           <label for="priority">优化优先级</label>
           <select id="priority" name="priority">
             <option value="count">尽量多放组件</option>
-            <option value="level">尽量提升总等级</option>
+            <option value="level">尽量升高组件</option>
           </select>
         </div>
-        <p class="hint">十字增幅器覆盖上下左右四个方向，全范围增幅器覆盖方形区域（含对角）。组件初始为 0 级，增幅可叠加，最高按 7 级计。计算时优先满足等级要求。前两项打平时，比较所有组件的等级合计。</p>
+        <p class="hint">十字增幅器覆盖上下左右四个方向，全范围增幅器覆盖方形区域（含对角）。组件初始为 0 级，增幅可叠加，最高按 7 级计。计算时先满足配置约束。「尽量升高组件」只比较「尽量升高」组件的等级合计。「尽量多放组件」依次比较组件数量、「尽量升高」组件等级合计和全盘等级合计。</p>
       </section>
     </form>
 
@@ -494,7 +501,7 @@ select {
         <div class="metrics">
           <div><strong id="parts-metric">—</strong><span>组件数量</span></div>
           <div><strong id="hard-metric">—</strong><span>满足等级要求的组件</span></div>
-          <div><strong id="soft-metric">—</strong><span>尽量升满合计</span></div>
+          <div><strong id="soft-metric">—</strong><span>「尽量升高」等级合计</span></div>
         </div>
         <div class="summary-wrap">
         <table class="summary">
@@ -603,8 +610,8 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
   }
 
   function objective(p, soft, count, total) {
-    const primary = p.config.priority === 'count' ? count * 197 + soft : soft * 26 + count;
-    return primary * 176 + total;
+    if (p.config.priority === 'count') return (count * 197 + soft) * 176 + total;
+    return soft;
   }
 
   function matchLevels(histogram, hard, soft) {
@@ -810,15 +817,16 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
     const random = n => Math.floor(unit() * n);
     const choices = [-1, 0, 1, 2, 3, ...p.held.map(id => id + 4)];
     const nearby = p.positions.map(pos => p.positions.filter(to => covered(6, 1, pos, to)));
+    const prioritizeCount = p.config.priority === 'count';
     const batch = 9600;
     for (let round = 0; performance.now() < deadline && !state.proven; round++) {
       const reference = state.best || state.near;
       const restart = round + (state.continuing ? 1 : 0);
       const board = seedBoard(p, random, restart, reference);
-      const first = p.config.priority === 'count' ? 2.15 : 0.85;
-      const second = p.config.priority === 'count' ? 0.9 : 1.9 + (round % 4) * 0.8;
+      const softWeight = prioritizeCount ? 0.9 : 1.9 + (round % 4) * 0.8;
       const pressure = round % 6 === 4 ? 0.72 : 1;
-      const energy = m => first * m.count + second * m.soft + m.total * 0.17
+      const energy = m => softWeight * m.soft
+        + (prioritizeCount ? 2.15 * m.count + 0.17 * m.total : 0)
         - pressure * (m.quantityGap * 19 + m.split * 17 + m.missing * 14 + m.deficit * 4.2);
       let score = energy(inspect(board));
       const hot = restart % 4 === 0 ? 12 : 6.2;
@@ -1271,7 +1279,7 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
     const requirements = settings.colors.map((entry, id) => {
       const label = colors[id].name;
       const min = integer(entry.min, label + '最低数量');
-      const soft = integer(entry.soft, label + '尽量升满的数量');
+      const soft = integer(entry.soft, label + '「尽量升高」的数量');
       const hardCount = integer(entry.hardCount, label + '有等级要求的组件数量');
       const hardLevel = integer(entry.hardLevel, label + '要求的等级', hardCount > 0);
       if (hardCount + soft > 7) throw new Error(label + '有等级要求的组件和额外升高的组件数量合计超过了 7 个。');
@@ -1372,7 +1380,7 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
   function roleDescription(role) {
     if (role.kind === 'hard') return '等级要求为 ' + role.level + ' 级';
     if (role.kind === 'miss') return '未达到 ' + role.level + ' 级目标';
-    return '尽量升满';
+    return '尽量升高';
   }
 
   function renderBoard(current) {
