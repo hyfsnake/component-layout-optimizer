@@ -1,0 +1,1605 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件摆放计算器</title>
+<style>
+:root {
+  color-scheme: light;
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  color: #17243b;
+  background: #edf1f6;
+  font-synthesis: none;
+  font-weight: 400;
+  line-height: 1.45;
+  --blue: #2956dc;
+  --blue-dark: #2146b9;
+  --muted: #52627a;
+  --line: #e4eaf2;
+  --slate: #101e34;
+  --red: #bd3f58;
+  --green: #14794f;
+  --yellow: #82630c;
+  --orange: #ad4d20;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+button, input, select { font: inherit; }
+button, select, input[type="checkbox"] { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid #4676ff;
+  outline-offset: 2px;
+}
+button:disabled { cursor: default; opacity: .51; }
+h1, h2, p { margin: 0; }
+.workspace { max-width: 1136px; margin: 0 auto; padding: 42px 30px 54px; }
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 27px;
+}
+.presets { display: grid; grid-template-columns: repeat(4, auto); gap: 6px; }
+.brand { display: flex; align-items: center; gap: 15px; }
+.brand-mark {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 10px;
+  background: #172d50;
+  border-radius: 15px;
+  box-shadow: 0 3px 8px #15284322;
+}
+.brand-mark i { background: #91b3ff; border-radius: 3px; }
+.brand-mark i:nth-child(2) { background: #82d9b3; }
+.brand-mark i:nth-child(3) { background: #ffd585; }
+.brand-mark i:nth-child(4) { background: #f39a85; }
+h1 { font-size: clamp(1.75rem, 3.3vw, 2.375rem); line-height: 1.24; letter-spacing: -.035em; }
+.page-head p { color: var(--muted); margin-top: 5px; font-size: 1rem; }
+.layout { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); align-items: start; gap: 21px; }
+.config, .results { display: grid; gap: 16px; min-width: 0; }
+.card {
+  min-width: 0;
+  padding: 19px 21px 17px;
+  border: 1px solid #dfe6ef;
+  border-radius: 19px;
+  background: #fff;
+  box-shadow: 0 2px 5px #182b4b06;
+}
+.card-head { margin-bottom: 13px; }
+h2 { font-size: 1.3125rem; font-weight: 720; letter-spacing: -.022em; }
+.card-head p, .hint { color: var(--muted); font-size: 0.875rem; }
+.card-head p { margin-top: 4px; }
+.hint { margin-top: 10px; line-height: 1.55; }
+.target-row, .stock-head, .stock-row { display: grid; align-items: center; gap: 7px; }
+.target-table { container-type: inline-size; }
+.target-row { grid-template-columns: max-content minmax(74px, 1fr) minmax(146px, 2fr) minmax(80px, 1fr); }
+.target-group { min-width: 0; margin: 0; padding: 4px 6px 7px; border: 1px solid #dce4ee; border-radius: 8px; background: #f7f9fc; }
+.target-group legend { padding: 0 3px; font-size: 0.875rem; font-weight: 700; color: #344965; }
+.target-group.required { border-color: #ccdafa; background: #f2f6ff; }
+.target-group.extra { border-color: #cce6db; background: #f2f9f5; }
+.target-fields { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 5px; }
+.stock-head {
+  color: #53627a;
+  background: #f2f5f9;
+  border-radius: 8px;
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+.stock-head span:not(:first-child) { text-align: center; }
+.target-row, .stock-row { border-bottom: 1px solid #edf1f6; padding: 6px 8px; min-height: 46px; }
+.color-name, .kind-name { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 0.9375rem; }
+.color-dot { width: 11px; height: 11px; border-radius: 4px; flex: 0 0 11px; background: var(--tone); }
+.red { --tone: var(--red); --tile-bg: #592d3a; --tile-edge: #9f5364; --tile-text: #ffdce1; }
+.green { --tone: var(--green); --tile-bg: #1f4b3f; --tile-edge: #418870; --tile-text: #c8f8de; }
+.yellow { --tone: var(--yellow); --tile-bg: #534722; --tile-edge: #9b823e; --tile-text: #ffedb5; }
+.orange { --tone: var(--orange); --tile-bg: #593726; --tile-edge: #a76543; --tile-text: #ffdac1; }
+.color-dot.yellow { background: #b18a21; }
+select {
+  color: #17243b;
+  height: 32px;
+  min-width: 0;
+  border: 1px solid #d8e1ec;
+  border-radius: 7px;
+  background: #fff;
+}
+.setting-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: #17243b;
+  background: #fff;
+  text-align: center;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+.setting-input::-webkit-inner-spin-button, .setting-input::-webkit-outer-spin-button { appearance: none; }
+.setting-input::placeholder { color: #6a7890; opacity: 1; }
+.target-caption { display: block; margin-bottom: 3px; color: #52627a; font-size: 0.8125rem; font-weight: 650; }
+.number-control {
+  display: grid;
+  grid-template-columns: minmax(20px, .7fr) minmax(18px, 1fr) minmax(20px, .7fr);
+  min-height: 34px;
+  border: 1px solid #d8e1ec;
+  border-radius: 7px;
+}
+.number-step {
+  padding: 0;
+  border: 0;
+  color: #365784;
+  background: #f5f8fd;
+  font-size: 1.0625rem;
+  line-height: 1;
+}
+.number-step:first-child { border-right: 1px solid #e3eaf4; border-radius: 6px 0 0 6px; }
+.number-step:last-child { border-left: 1px solid #e3eaf4; border-radius: 0 6px 6px 0; }
+.number-step:hover:not(:disabled) { background: #e7efff; }
+.number-step:disabled { color: #8d9bb1; }
+.number-control :focus-visible { outline-offset: -2px; }
+@container (min-width: 461px) {
+  .color-name { flex-direction: column; gap: 3px; }
+}
+@container (min-width: 351px) and (max-width: 460px) {
+  .target-row { grid-template-columns: minmax(74px, 1fr) minmax(146px, 2fr) minmax(80px, 1fr); }
+  .color-name { grid-column: 1 / -1; }
+}
+@container (max-width: 350px) {
+  .target-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .target-group.extra .target-field { display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
+}
+.stock-head, .stock-row { grid-template-columns: minmax(100px, 1fr) 55px 58px 58px; }
+.stock-title-row { display: flex; align-items: center; justify-content: space-between; }
+.stock-row { min-height: 39px; padding-block: 4px; }
+.item-icon { display: block; width: 36px; height: 36px; flex: none; border-radius: 7px; }
+.tile .item-icon { width: min(64%, 52px); height: auto; aspect-ratio: 1; }
+.stock-power { text-align: center; color: #4c5d75; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.stock-toggle { display: grid; place-items: center; min-height: 29px; cursor: pointer; }
+.stock-toggle:hover { background: #f0f4fd; border-radius: 7px; }
+.stock-toggle input { margin: 0; width: 16px; height: 16px; accent-color: var(--blue); }
+.preferences .card-head { margin-bottom: 9px; }
+.pref-row { display: grid; grid-template-columns: 1fr minmax(144px, 1fr); align-items: center; gap: 8px; min-height: 43px; }
+.pref-row label { font-size: 0.9375rem; font-weight: 650; }
+.pref-row select { width: 100%; padding: 0 6px; font-size: 0.875rem; }
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  min-height: 36px;
+  padding: 0 13px;
+  font-size: 0.9375rem;
+  font-weight: 680;
+  white-space: nowrap;
+  transition: background-color .15s, border-color .15s;
+}
+.secondary { background: #fff; border-color: #dce4ef; color: #264266; }
+.secondary:hover { background: #f4f7fc; border-color: #c8d6ea; }
+.board-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #253b5b;
+  border-radius: 20px;
+  color: #f2f6ff;
+  background: linear-gradient(153deg, #1c304f 0%, #14253f 57%, #15243c 100%);
+  box-shadow: 0 10px 27px #12234128;
+}
+.board-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; margin-bottom: 11px; }
+.board-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.goal-met { padding: 3px 8px; border: 1px solid #447f6c; border-radius: 999px; background: #214d43; color: #c1f1d9; font-size: .8125rem; font-weight: 650; white-space: nowrap; }
+.goal-met.unmet { border-color: #866641; background: #503c28; color: #ffddab; }
+.board-head h2 { font-size: 1.4375rem; }
+.status {
+  display: inline-block;
+  flex: 0 0 auto;
+  border: 1px solid #455f87;
+  background: #293f60;
+  color: #e2ecff;
+  border-radius: 100px;
+  padding: 4px 9px;
+  margin-top: 3px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+.status[data-kind="good"] { background: #214d43; color: #c1f1d9; border-color: #447f6c; }
+.status[data-kind="warn"] { background: #574022; color: #ffde9d; border-color: #85663c; }
+.status[data-kind="busy"] { background: #284c8a; color: #e2ebff; border-color: #587cc1; }
+.board-frame {
+  display: grid;
+  grid-template-columns: 17px repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  max-width: 455px;
+  margin: 0 auto;
+  padding: 3px 8px 8px 2px;
+  border: 1px solid #334965;
+  border-radius: 13px;
+  background: #0b182c;
+}
+.board-frame.is-searching {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: #69dbff;
+  box-shadow: 0 0 0 2px #52ccff35, 0 0 22px #36afff55;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .board-frame.is-searching::after {
+    content: "";
+    position: absolute;
+    z-index: 4;
+    inset: 0 0 auto;
+    height: 26%;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent, #719dff12 38%, #62dfff52 95%, #b6ffffb3);
+    border-bottom: 1px solid #b6ffff;
+    animation: board-scan 1.65s linear infinite;
+  }
+  .status[data-kind="busy"]::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    vertical-align: -2px;
+    border: 2px solid #75bdff55;
+    border-top-color: #acffff;
+    border-right-color: #acffff;
+    border-radius: 50%;
+    animation: status-spin .8s linear infinite;
+  }
+  @keyframes board-scan {
+    from { transform: translateY(-100%); }
+    to { transform: translateY(390%); }
+  }
+  @keyframes status-spin { to { transform: rotate(1turn); } }
+}
+.axis { display: grid; place-items: center; color: #91a6c6; font-size: 0.8125rem; line-height: 18px; user-select: none; }
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 1px solid var(--tile-edge, #283e5c);
+  box-shadow: inset 0 2px #fff0;
+  background: var(--tile-bg, #162741);
+  color: var(--tile-text, #9eb3d1);
+  min-width: 0;
+  min-height: 0;
+  padding: 2px;
+  line-height: 1.03;
+  transition: filter .15s, box-shadow .15s;
+}
+.tile.connected-right::after, .tile.connected-down::before {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  background: var(--tile-edge);
+  pointer-events: none;
+  content: "";
+}
+.tile.connected-right::after { width: 7px; height: 5px; top: calc(50% - 2px); right: -7px; }
+.tile.connected-down::before { width: 5px; height: 7px; left: calc(50% - 2px); bottom: -7px; }
+.tile.amplifier { --tile-bg: #173e60; --tile-edge: #397aa5; --tile-text: #c3eaff; }
+.tile-level, .tile-glyph { font-size: clamp(1.25rem, 3.4vw, 1.75rem); font-weight: 740; line-height: 1.03; }
+.tile-caption { margin-top: 3px; font-size: 0.75rem; font-weight: 650; }
+.role-mark {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  border-radius: 4px;
+  padding: 2px 3px;
+  background: #edda9c;
+  color: #382c15;
+  font-size: 0.6875rem;
+  font-weight: 750;
+}
+.role-mark.soft { background: #bfdcfd; color: #1b3d68; }
+.role-mark.miss { background: #ffd2d5; color: #7a222a; }
+.board-actions { display: flex; gap: 8px; margin-top: 11px; }
+.board-actions .button { min-height: 39px; }
+.primary { flex: 1; background: #a4bdff; color: #142e6e; }
+.primary:hover { background: #c5d4ff; }
+.board-secondary { flex: 1; border-color: #557299; color: #ecf4ff; background: #2c4263; }
+.board-secondary:hover { background: #39557e; }
+.run-note { min-height: 17px; margin: 10px 0 0; color: #c2d1e8; font-size: 0.8125rem; line-height: 1.55; }
+.run-note:is([data-kind="search"], [data-kind="verify"]) {
+  --signal: #65eeef;
+  position: relative;
+  overflow: hidden;
+  padding: 4px 0 10px;
+  color: #dfedff;
+}
+.run-note[data-kind="verify"] { --signal: #b5a2ff; }
+.run-note:is([data-kind="search"], [data-kind="verify"])::before,
+.run-note:is([data-kind="search"], [data-kind="verify"])::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  height: 3px;
+  border-radius: 3px;
+}
+.run-note::before {
+  width: 100%;
+  background: repeating-linear-gradient(90deg, #6683ab58 0 6px, transparent 6px 9px);
+}
+.run-note::after {
+  width: 28%;
+  background: linear-gradient(90deg, transparent, var(--signal) 76%, #f3fdff);
+  filter: drop-shadow(0 0 3px var(--signal));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .run-note[data-kind="search"]::after { animation: search-sweep 1.55s linear infinite; }
+  .run-note[data-kind="verify"]::after {
+    background: linear-gradient(90deg, transparent, var(--signal) 38%, #f3fdff 50%, var(--signal) 62%, transparent);
+    animation: verify-sweep 2.2s ease-in-out infinite alternate;
+  }
+  @keyframes search-sweep { from { transform: translateX(-100%); } to { transform: translateX(360%); } }
+  @keyframes verify-sweep { from { transform: translateX(0); } to { transform: translateX(257%); } }
+}
+.run-note[data-kind="warn"] { color: #ffda99; }
+.overview { padding-block: 14px; }
+.overview-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 9px; }
+.overview-head h2 { font-size: 1.125rem; }
+.quiet { color: #2b55b6; background: #eef3ff; min-height: 29px; font-size: 0.875rem; padding: 0 9px; }
+.quiet:hover { background: #dfe9ff; }
+.metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid #e4eaf3; border-radius: 10px; background: #f7f9fc; }
+.metrics > div { display: flex; flex-direction: column; text-align: center; gap: 2px; padding: 7px 2px; }
+.metrics > div + div { border-left: 1px solid #e4eaf3; }
+.metrics strong { font-size: 1.3125rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.metrics span { font-size: 0.75rem; color: #53647c; }
+.summary { width: 100%; margin-top: 12px; border-collapse: collapse; font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
+.summary caption { text-align: left; font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+.summary th, .summary td { padding: 6px 2px; text-align: center; border-bottom: 1px solid #e4eaf3; }
+.summary thead th { background: #f2f5fa; color: #50617a; font-size: 0.8125rem; white-space: nowrap; }
+.summary th:first-child { text-align: left; padding-left: 5px; }
+.summary tbody th { white-space: nowrap; font-size: 0.875rem; }
+.summary td { font-weight: 700; }
+.summary td.empty { color: #aab4c3; font-weight: 400; }
+.summary .color-dot { display: inline-block; width: 8px; height: 8px; margin-right: 5px; }
+@media (min-width: 880px) and (min-height: 840px) { .results { position: sticky; top: 16px; } }
+@media (max-width: 865px) {
+  .workspace { padding: 28px 19px 38px; }
+  .layout { gap: 13px; }
+  .card, .board-card { padding-inline: 13px; }
+  .stock-row { padding-inline: 4px; }
+}
+@media (max-width: 860px) {
+  .workspace { max-width: 640px; }
+  .layout { grid-template-columns: 1fr; }
+  .results { margin-top: 3px; }
+  .setting-input, .pref-row select { font-size: 1rem; }
+  .stock-toggle, .button, .board-actions .button, .pref-row select { min-height: 44px; }
+  .stock-toggle input { width: 20px; height: 20px; }
+  .tile .item-icon { width: min(56%, 52px); }
+  .page-head { margin-bottom: 20px; gap: 8px; }
+  .page-head p { font-size: 0.875rem; }
+  .brand { gap: 9px; }
+  .brand-mark { width: 37px; height: 37px; flex-basis: 37px; border-radius: 10px; padding: 7px; gap: 3px; }
+  .page-head { flex-wrap: wrap; }
+  .presets { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile-level, .tile-glyph { font-size: clamp(1.25rem, 5.6vw, 1.75rem); }
+}
+@media (max-width: 480px) {
+  .workspace { padding: 20px 10px 32px; }
+  .brand { flex: 1 1 200px; }
+  .summary-wrap { overflow-x: auto; }
+  .summary { min-width: 305px; }
+  .metrics > div { padding: 9px 4px; }
+  .tile-caption { white-space: nowrap; }
+}
+@media (max-width: 370px) {
+  .workspace { padding-inline: 10px; }
+  h1 { font-size: 1.4375rem; }
+  .brand-mark { display: none; }
+  .stock-head, .stock-row { grid-template-columns: minmax(90px, 1fr) 43px 47px 47px; }
+  .role-mark { top: 2px; right: 2px; padding: 1px 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}
+
+</style>
+</head>
+<body>
+<main class="workspace">
+  <header class="page-head">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div>
+        <h1>组件摆放计算器</h1>
+        <p>配置组件目标和增幅器库存，计算 5 × 5 棋盘方案。</p>
+      </div>
+    </div>
+    <div class="presets" role="group" aria-label="组件目标预设">
+      <button type="button" data-preset="healthIdle" class="button secondary">体力挂机</button>
+      <button type="button" data-preset="healthArena" class="button secondary">体力jjc</button>
+      <button type="button" data-preset="attackIdle" class="button secondary">攻击挂机</button>
+      <button type="button" data-preset="attackArena" class="button secondary">攻击jjc</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <form id="settings" class="config" novalidate>
+      <section class="card" aria-labelledby="target-title">
+        <div class="card-head">
+          <h2 id="target-title">组件目标</h2>
+          <p>每色最多 7 个。同色组件要通过上下左右连成一块。</p>
+        </div>
+        <div class="target-table">
+          <div id="targets"></div>
+        </div>
+        <p class="hint">最低数量按同色组件总数计算，可留空。先选出有等级要求的组件，再从其余同色组件中选取“额外几个”。</p>
+      </section>
+
+      <section class="card" aria-labelledby="stock-title">
+        <div class="card-head">
+          <div class="stock-title-row"><h2 id="stock-title">增幅器库存</h2><button type="button" id="select-all-amps" class="button quiet">全选</button></div>
+          <p>勾选你持有的版本。每种范围各有一个，计算时按需使用。</p>
+        </div>
+        <div class="stock-table">
+          <div class="stock-head" aria-hidden="true"><span>类型</span><span>加成</span><span>1 格版</span><span>2 格版</span></div>
+          <div id="inventory"></div>
+        </div>
+      </section>
+
+      <section class="card preferences" aria-labelledby="preference-title">
+        <div class="card-head"><h2 id="preference-title">计算偏好</h2></div>
+        <div class="pref-row">
+          <label for="priority">优化优先级</label>
+          <select id="priority" name="priority">
+            <option value="count">尽量多放组件</option>
+            <option value="level">尽量提升总等级</option>
+          </select>
+        </div>
+        <p class="hint">十字增幅器覆盖上下左右四个方向，全范围增幅器覆盖方形区域（含对角）。组件初始为 0 级，增幅可叠加，最高按 7 级计。计算时优先满足等级要求。前两项打平时，比较所有组件的等级合计。</p>
+      </section>
+    </form>
+
+    <aside class="results" aria-label="计算结果">
+      <section class="board-card" aria-labelledby="board-title">
+        <div class="board-head">
+          <div class="board-heading">
+            <h2 id="board-title">摆放方案</h2>
+            <span id="goal-met" class="goal-met unmet">未满足要求</span>
+          </div>
+          <span id="status" class="status" role="status">等待计算</span>
+        </div>
+        <div class="board-frame" id="board" role="group" aria-label="5 行 5 列的摆放棋盘"></div>
+        <p id="run-note" class="run-note">点击「计算方案」搜索并验证最优方案。</p>
+        <div class="board-actions">
+          <button type="submit" id="solve" form="settings" class="button primary">计算方案</button>
+          <button type="button" id="action" class="button board-secondary" hidden>停止计算</button>
+        </div>
+      </section>
+
+      <section class="card overview" aria-labelledby="overview-title" id="overview" hidden>
+        <div class="overview-head">
+          <h2 id="overview-title">目标完成情况</h2>
+          <button type="button" id="copy" class="button quiet">复制方案</button>
+        </div>
+        <div class="metrics">
+          <div><strong id="parts-metric">—</strong><span>组件数量</span></div>
+          <div><strong id="hard-metric">—</strong><span>满足等级要求的组件</span></div>
+          <div><strong id="soft-metric">—</strong><span>尽量升满合计</span></div>
+        </div>
+        <div class="summary-wrap">
+        <table class="summary">
+          <caption>各等级组件数量</caption>
+          <thead><tr><th scope="col">颜色</th><th scope="col">7级</th><th scope="col">6级</th><th scope="col">5级</th><th scope="col">4级</th><th scope="col">3级</th><th scope="col">2级</th><th scope="col">1级</th><th scope="col">0级</th></tr></thead>
+          <tbody id="summary"></tbody>
+        </table>
+        </div>
+      </section>
+    </aside>
+  </div>
+</main>
+<script>
+const amplifierKinds = [
+  { name: '水平', short: '横', symbol: '↔', power: 2 },
+  { name: '垂直', short: '竖', symbol: '↕', power: 2 },
+  { name: '向上', short: '上', symbol: '↑', power: 4 },
+  { name: '向下', short: '下', symbol: '↓', power: 4 },
+  { name: '向左', short: '左', symbol: '←', power: 4 },
+  { name: '向右', short: '右', symbol: '→', power: 4 },
+  { name: '全范围', short: '全', symbol: '✧', power: 1 },
+  { name: '十字', short: '十', symbol: '✚', power: 1 }
+];
+
+function coversCell(type, distance, from, to) {
+  const row = Math.floor(to / 5) - Math.floor(from / 5);
+  const col = to % 5 - from % 5;
+  if (row === 0 && col === 0) return false;
+  switch (type) {
+    case 0: return row === 0 && Math.abs(col) <= distance;
+    case 1: return col === 0 && Math.abs(row) <= distance;
+    case 2: return col === 0 && row < 0 && row >= -distance;
+    case 3: return col === 0 && row > 0 && row <= distance;
+    case 4: return row === 0 && col < 0 && col >= -distance;
+    case 5: return row === 0 && col > 0 && col <= distance;
+    case 7: return (row === 0 || col === 0) && Math.abs(row) + Math.abs(col) <= distance;
+    default: return Math.max(Math.abs(row), Math.abs(col)) <= distance;
+  }
+}
+
+function solverWorker(covered = coversCell, kinds = amplifierKinds) {
+  const width = 5;
+  const size = 25;
+  const full = (1 << size) - 1;
+  const powers = Array.from({ length: kinds.length * 2 }, (_, id) => kinds[id >> 1].power);
+  const leftCol = 1082401;
+  const rightCol = leftCol << 4;
+  const snake = Array.from({ length: size }, (_, i) => {
+    const row = Math.floor(i / width);
+    return row * width + (row % 2 ? width - 1 - i % width : i % width);
+  });
+  const range = (length) => Array.from({ length }, (_, index) => index);
+
+  function bitCount(value) {
+    value -= (value >>> 1) & 0x55555555;
+    value = (value & 0x33333333) + ((value >>> 2) & 0x33333333);
+    return ((((value + (value >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24);
+  }
+
+  function adjacent(mask) {
+    return (((mask & ~rightCol) << 1) | ((mask & ~leftCol) >>> 1)
+      | (mask << width) | (mask >>> width)) & full;
+  }
+
+  function connectedPart(mask) {
+    let reached = mask & -mask;
+    while (true) {
+      const next = reached | (adjacent(reached) & mask);
+      if (next === reached) return reached;
+      reached = next;
+    }
+  }
+
+  function disconnectedCount(mask, count) {
+    if (count < 2) return 0;
+    const first = connectedPart(mask);
+    if (first === mask) return 0;
+    let largest = bitCount(first);
+    mask ^= first;
+    while (bitCount(mask) > largest) {
+      const part = connectedPart(mask);
+      largest = Math.max(largest, bitCount(part));
+      mask ^= part;
+    }
+    return count - largest;
+  }
+
+  function setup(config) {
+    const positions = range(size);
+    const effects = range(powers.length).map(id => positions.map(from =>
+      positions.filter(to => covered(id >> 1, id % 2 + 1, from, to))
+    ));
+    const held = config.held.slice();
+    const impact = effects.map((byPosition, id) => Math.max(...byPosition.map(cells => cells.length)) * powers[id]);
+    held.sort((a, b) => impact[b] - impact[a] || a - b);
+    const hard = config.colors.map(color => color.hard.slice().sort((a, b) => b - a));
+    const minimum = config.colors.map((color, i) => Math.max(color.min, hard[i].length + color.soft));
+    const soft = config.colors.map(color => color.soft);
+    const allHard = hard.flat().sort((a, b) => b - a);
+    const totalSoft = soft.reduce((sum, count) => sum + count, 0);
+    const hardEnergy = allHard.reduce((sum, level) => sum + level, 0);
+    const origins = effects.map(byPosition => positions.map(target =>
+      positions.reduce((mask, origin) => mask | (byPosition[origin].includes(target) ? 1 << origin : 0), 0)
+    ));
+    return { config, positions, effects, held, impact, hard, minimum, soft, allHard, totalSoft, hardEnergy, origins };
+  }
+
+  function objective(p, soft, count, total) {
+    const primary = p.config.priority === 'count' ? count * 197 + soft : soft * 26 + count;
+    return primary * 176 + total;
+  }
+
+  function matchLevels(histogram, hard, soft) {
+    let missing = 0;
+    let deficit = 0;
+    let highMissing = 0;
+    // Satisfy stricter targets first using the lowest eligible level.
+    for (const level of hard) {
+      let used = level;
+      while (used <= 7 && !histogram[used]) used++;
+      if (used <= 7) histogram[used]--;
+      else {
+        missing++;
+        deficit += level;
+        if (level > highMissing) highMissing = level;
+      }
+    }
+    // Keep unmet targets separate from the pieces available for the soft targets.
+    if (missing) {
+      let reserved = 0;
+      for (let level = highMissing - 1; level >= 0 && reserved < missing; level--) {
+        const take = Math.min(histogram[level], missing - reserved);
+        histogram[level] -= take;
+        deficit -= take * level;
+        reserved += take;
+      }
+    }
+    let softScore = 0;
+    for (let level = 7; level >= 0 && soft > 0; level--) {
+      const taken = Math.min(histogram[level], soft);
+      softScore += taken * level;
+      soft -= taken;
+    }
+    return { missing, deficit, softScore };
+  }
+
+  function evaluator(p) {
+    const counts = new Int8Array(4);
+    const masks = new Int32Array(4);
+    const gains = new Uint8Array(size);
+    const histogram = range(4).map(() => new Int8Array(8));
+    const metrics = {};
+    return (board) => {
+      gains.fill(0);
+      counts.fill(0);
+      masks.fill(0);
+      for (const bucket of histogram) bucket.fill(0);
+      for (let pos = 0; pos < size; pos++) {
+        const id = board[pos] - 4;
+        if (id < 0) continue;
+        for (const to of p.effects[id][pos]) gains[to] += powers[id];
+      }
+      let count = 0;
+      let total = 0;
+      for (let pos = 0; pos < size; pos++) {
+        const color = board[pos];
+        if (color < 0 || color >= 4) continue;
+        counts[color]++;
+        masks[color] |= 1 << pos;
+        const level = Math.min(7, gains[pos]);
+        histogram[color][level]++;
+        total += level;
+        count++;
+      }
+      let missing = 0;
+      let deficit = 0;
+      let softScore = 0;
+      let quantityGap = 0;
+      let split = 0;
+      for (let color = 0; color < 4; color++) {
+        quantityGap += Math.max(0, p.minimum[color] - counts[color], counts[color] - 7);
+        split += disconnectedCount(masks[color], counts[color]);
+        const match = matchLevels(histogram[color], p.hard[color], p.soft[color]);
+        missing += match.missing;
+        deficit += match.deficit;
+        softScore += match.softScore;
+      }
+      metrics.valid = quantityGap === 0 && split === 0 && missing === 0;
+      metrics.near = quantityGap === 0 && split === 0;
+      metrics.score = objective(p, softScore, count, total);
+      metrics.shortage = missing * 192 + deficit;
+      metrics.soft = softScore;
+      metrics.count = count;
+      metrics.total = total;
+      metrics.missing = missing;
+      metrics.deficit = deficit;
+      metrics.quantityGap = quantityGap;
+      metrics.split = split;
+      return metrics;
+    };
+  }
+
+  function plainBoard(p) {
+    const counts = p.minimum.slice();
+    let total = counts.reduce((sum, count) => sum + count, 0);
+    for (let color = 0; color < 4 && total < size; color++) {
+      const extra = Math.min(7 - counts[color], size - total);
+      counts[color] += extra;
+      total += extra;
+    }
+    const board = new Int8Array(size).fill(-1);
+    let i = 0;
+    for (let color = 0; color < 4; color++) {
+      for (let n = 0; n < counts[color]; n++) board[snake[i++]] = color;
+    }
+    return board;
+  }
+
+  function upperBounds(p) {
+    const minimumParts = p.minimum.reduce((sum, count) => sum + count, 0);
+    const result = [];
+    const maxima = p.positions.map(pos => p.held
+      .map(id => p.origins[id][pos] ? powers[id] : 0)
+      .sort((a, b) => b - a));
+    const need = p.hardEnergy;
+    let energy = 0;
+    for (let n = 0; n <= Math.min(p.held.length, size - minimumParts); n++) {
+      if (n) energy += p.impact[p.held[n - 1]];
+      if (energy < need) {
+        result.push(-1);
+        continue;
+      }
+      const histogram = new Int8Array(8);
+      let sum = 0;
+      for (const strengths of maxima) {
+        const cap = Math.min(7, strengths.slice(0, n).reduce((a, b) => a + b, 0));
+        histogram[cap]++;
+        sum += cap;
+      }
+      const match = matchLevels(histogram, p.allHard, p.totalSoft);
+      if (match.missing) {
+        result.push(-1);
+        continue;
+      }
+      const count = size - n;
+      const soft = Math.min(match.softScore, energy - need);
+      result.push(objective(p, soft, count, Math.min(sum, count * 7, energy)));
+    }
+    return result;
+  }
+
+  function shuffle(values, random) {
+    for (let i = values.length - 1; i > 0; i--) {
+      const j = random(i + 1);
+      [values[i], values[j]] = [values[j], values[i]];
+    }
+    return values;
+  }
+
+  function seedBoard(p, random, round, incumbent) {
+    // A layout based on the reference screenshot seeds the first search.
+    if (round === 0) {
+      return Int8Array.from([
+        1, 1, 15, 0, 0,
+        11, 1, 1, 1, 7,
+        2, 6, 17, 1, 1,
+        2, 3, 5, 3, 3,
+        3, 3, 3, 3, 9
+      ], tile => tile >= 4 && !p.held.includes(tile - 4) ? -1 : tile);
+    }
+    if (incumbent && round % 4 !== 0) return Int8Array.from(incumbent.board);
+    const board = new Int8Array(size).fill(-1);
+    const slots = p.minimum.slice();
+    let occupied = slots.reduce((sum, count) => sum + count, 0);
+    const maxAmps = Math.min(p.held.length, size - occupied);
+    const n = maxAmps > 0 ? 1 + random(maxAmps) : 0;
+    const allowed = shuffle(p.held.slice(), random).slice(0, n);
+    while (occupied < size - n) {
+      const options = range(4).filter(color => slots[color] < 7);
+      slots[options[random(options.length)]]++;
+      occupied++;
+    }
+    const flip = random(8);
+    const route = snake.map(pos => {
+      let row = Math.floor(pos / width);
+      let col = pos % width;
+      if (flip & 1) row = width - 1 - row;
+      if (flip & 2) col = width - 1 - col;
+      return flip & 4 ? col * width + row : row * width + col;
+    });
+    const reserved = new Set(shuffle(p.positions.slice(), random).slice(0, n));
+    let i = 0;
+    for (const color of shuffle(range(4), random)) {
+      for (let j = 0; j < slots[color]; j++) {
+        while (reserved.has(route[i])) i++;
+        board[route[i++]] = color;
+      }
+    }
+    i = 0;
+    for (const pos of reserved) board[pos] = 4 + allowed[i++];
+    return board;
+  }
+
+  function heuristic(p, state, inspect, duration) {
+    const deadline = performance.now() + duration;
+    let seed = state.seed >>> 0 || 0x12345678;
+    const unit = () => {
+      seed ^= seed << 13;
+      seed ^= seed >>> 17;
+      seed ^= seed << 5;
+      return (seed >>> 0) / 4294967296;
+    };
+    const random = n => Math.floor(unit() * n);
+    const choices = [-1, 0, 1, 2, 3, ...p.held.map(id => id + 4)];
+    const nearby = p.positions.map(pos => p.positions.filter(to => covered(6, 1, pos, to)));
+    const batch = 9600;
+    for (let round = 0; performance.now() < deadline && !state.proven; round++) {
+      const reference = state.best || state.near;
+      const restart = round + (state.continuing ? 1 : 0);
+      const board = seedBoard(p, random, restart, reference);
+      const first = p.config.priority === 'count' ? 2.15 : 0.85;
+      const second = p.config.priority === 'count' ? 0.9 : 1.9 + (round % 4) * 0.8;
+      const pressure = round % 6 === 4 ? 0.72 : 1;
+      const energy = m => first * m.count + second * m.soft + m.total * 0.17
+        - pressure * (m.quantityGap * 19 + m.split * 17 + m.missing * 14 + m.deficit * 4.2);
+      let score = energy(inspect(board));
+      const hot = restart % 4 === 0 ? 12 : 6.2;
+      for (let step = 0; step < batch && !state.proven; step++) {
+        if ((step & 255) === 0 && performance.now() >= deadline) return;
+        const a = random(size);
+        const oldA = board[a];
+        const move = random(100);
+        let b = -1;
+        let oldB = -1;
+        if (move < 32) {
+          const replacement = choices[random(choices.length)];
+          if (replacement === oldA || (replacement >= 4 && board.includes(replacement))) continue;
+          board[a] = replacement;
+        } else {
+          b = move < 72 ? nearby[a][random(nearby[a].length)] : random(size);
+          oldB = board[b];
+          if (oldA === oldB) continue;
+          board[a] = oldB;
+          board[b] = oldA;
+        }
+        const nextScore = energy(inspect(board));
+        state.tried++;
+        const cooling = 1 - step / batch;
+        const temperature = 0.37 + hot * cooling * cooling;
+        if (nextScore >= score || unit() < Math.exp((nextScore - score) / temperature)) {
+          score = nextScore;
+        } else {
+          board[a] = oldA;
+          if (b >= 0) board[b] = oldB;
+        }
+        if ((state.tried & 16383) === 0) state.report();
+      }
+    }
+  }
+
+  function connectedMasks() {
+    const bySize = [new Set([0]), new Set(range(size).map(pos => 1 << pos))];
+    for (let count = 2; count <= 7; count++) {
+      const next = new Set();
+      for (const mask of bySize[count - 1]) {
+        let frontier = adjacent(mask) & ~mask;
+        while (frontier) {
+          const bit = frontier & -frontier;
+          next.add(mask | bit);
+          frontier ^= bit;
+        }
+      }
+      bySize.push(next);
+    }
+    return bySize.map(masks => Array.from(masks));
+  }
+
+  function* exhaustive(p, state, inspect, upper) {
+    const groups = connectedMasks();
+    const gains = new Uint8Array(size);
+    const levelAt = new Uint8Array(size);
+    const ampAt = new Int8Array(size).fill(-1);
+    const ampCells = p.effects.map((byPosition, id) => p.positions.filter(pos => byPosition[pos].length)
+      .sort((a, b) => byPosition[b].length - byPosition[a].length));
+    const colors = range(4).sort((a, b) =>
+      (p.hard[b][0] || 0) - (p.hard[a][0] || 0)
+      || p.hard[b].length - p.hard[a].length || p.minimum[b] - p.minimum[a]);
+    const suffix = [...colors.map(color => p.minimum[color]), 0];
+    for (let i = 3; i >= 0; i--) suffix[i] += suffix[i + 1];
+    const suffixHard = range(5).map(depth => colors.slice(depth).flatMap(color => p.hard[color]).sort((a, b) => b - a));
+    const suffixSoft = range(5).map(depth => colors.slice(depth).reduce((sum, color) => sum + p.soft[color], 0));
+    const selected = new Int32Array(4);
+    let steps = 0;
+
+    function tally(mask, histogram) {
+      let total = 0;
+      while (mask) {
+        const bit = mask & -mask;
+        const level = levelAt[31 - Math.clz32(bit)];
+        histogram[level]++;
+        total += level;
+        mask ^= bit;
+      }
+      return total;
+    }
+
+    function publishLayout() {
+      const board = ampAt.slice();
+      for (let color = 0; color < 4; color++) {
+        let mask = selected[color];
+        while (mask) {
+          const bit = mask & -mask;
+          board[31 - Math.clz32(bit)] = color;
+          mask ^= bit;
+        }
+      }
+      inspect(board);
+    }
+
+    function* colorBoard(depth, left, count, soft, total) {
+      if ((++steps & 1023) === 0) yield;
+      if (state.proven) return;
+      const available = bitCount(left);
+      if (available < suffix[depth]) return;
+      const availableHistogram = new Int8Array(8);
+      const availableTotal = tally(left, availableHistogram);
+      const ceiling = matchLevels(availableHistogram, suffixHard[depth], suffixSoft[depth]);
+      if (ceiling.missing || objective(p, soft + ceiling.softScore, count + available, total + availableTotal) <= state.score()) return;
+      const color = colors[depth];
+      const limit = Math.min(7, available - suffix[depth + 1]);
+      const histogram = new Int8Array(8);
+      for (let n = limit; n >= p.minimum[color]; n--) {
+        const candidates = n === available ? [left] : groups[n];
+        for (const mask of candidates) {
+          if ((++steps & 1023) === 0) yield;
+          if (state.proven) return;
+          if ((mask & left) !== mask) continue;
+          if (n === available && connectedPart(mask) !== mask) continue;
+          histogram.fill(0);
+          const levels = tally(mask, histogram);
+          const match = matchLevels(histogram, p.hard[color], p.soft[color]);
+          if (match.missing) continue;
+          selected[color] = mask;
+          if (depth < 3) yield* colorBoard(depth + 1, left ^ mask, count + n, soft + match.softScore, total + levels);
+          else if (objective(p, soft + match.softScore, count + n, total + levels) > state.score()) publishLayout();
+          if (objective(p, soft + ceiling.softScore, count + available, total + availableTotal) <= state.score()) return;
+        }
+      }
+    }
+
+    const ids = [];
+    function* place(depth, occupied, ceiling) {
+      if ((++steps & 1023) === 0) yield;
+      if (state.proven || ceiling <= state.score()) return;
+      const left = ids.length - depth;
+      const free = full ^ occupied;
+      if (!left) {
+        state.patterns++;
+        for (let pos = 0; pos < size; pos++) levelAt[pos] = Math.min(7, gains[pos]);
+        yield* colorBoard(0, free, 0, 0, 0);
+        return;
+      }
+      if (left <= 2 && depth > 0) {
+        const histogram = new Int8Array(8);
+        let total = 0;
+        for (const pos of p.positions) {
+          if (occupied & (1 << pos)) continue;
+          let gain = gains[pos];
+          for (let i = depth; i < ids.length; i++) {
+            const id = ids[i];
+            if (p.origins[id][pos] & free) gain += powers[id];
+          }
+          const level = Math.min(7, gain);
+          histogram[level]++;
+          total += level;
+        }
+        const optimistic = matchLevels(histogram, p.allHard, p.totalSoft);
+        const count = size - ids.length;
+        if (optimistic.missing || objective(p, optimistic.softScore, count, Math.min(total, count * 7)) <= state.score()) return;
+      }
+      const id = ids[depth];
+      for (const pos of ampCells[id]) {
+        const bit = 1 << pos;
+        if (occupied & bit) continue;
+        ampAt[pos] = 4 + id;
+        for (const target of p.effects[id][pos]) gains[target] += powers[id];
+        yield* place(depth + 1, occupied | bit, ceiling);
+        for (const target of p.effects[id][pos]) gains[target] -= powers[id];
+        ampAt[pos] = -1;
+        if (state.proven || ceiling <= state.score()) return;
+      }
+    }
+
+    function* choose(start, needed, energy, ceiling) {
+      if (state.proven || ceiling <= state.score()) return;
+      if (!needed) {
+        const targetEnergy = p.hardEnergy;
+        if (energy < targetEnergy) return;
+        const count = size - ids.length;
+        const soft = Math.min(p.totalSoft * 7, energy - targetEnergy);
+        const cap = objective(p, soft, count, Math.min(count * 7, energy));
+        yield* place(0, 0, Math.min(ceiling, cap));
+        return;
+      }
+      for (let i = start; i <= p.held.length - needed; i++) {
+        const id = p.held[i];
+        ids.push(id);
+        yield* choose(i + 1, needed - 1, energy + p.impact[id], ceiling);
+        ids.pop();
+      }
+    }
+
+    for (let count = 0; count < upper.length && !state.proven; count++) {
+      if (upper[count] <= state.score()) continue;
+      state.testing = count;
+      yield* choose(0, count, 0, upper[count]);
+    }
+  }
+
+  self.onmessage = ({ data }) => {
+    const p = setup(data.config);
+    const evaluate = evaluator(p);
+    const upper = upperBounds(p);
+    const globalUpper = Math.max(-1, ...upper);
+    const state = {
+      best: null, near: null, tried: 0, patterns: 0, testing: null, proven: false,
+      phase: 'search', seed: data.seed, continuing: Boolean(data.incumbent || data.near),
+      score: () => state.best ? state.best.score : -1,
+      report: type => self.postMessage({
+        type: type || 'progress', best: state.best, near: state.near, tried: state.tried,
+        phase: state.phase, patterns: state.patterns, testing: state.testing, proven: state.proven
+      })
+    };
+    let pendingReport = 0;
+    function inspect(board) {
+      const metrics = evaluate(board);
+      if (metrics.valid && metrics.score > state.score()) {
+        state.best = { ...metrics, board: Array.from(board) };
+        state.proven = metrics.score >= globalUpper;
+        if (performance.now() > pendingReport) {
+          state.report();
+          pendingReport = performance.now() + 140;
+        }
+      } else if (!state.best && metrics.near
+        && (!state.near || metrics.shortage < state.near.shortage
+          || (metrics.shortage === state.near.shortage && metrics.score > state.near.score))) {
+        state.near = { ...metrics, board: Array.from(board) };
+      }
+      return metrics;
+    }
+    if (data.incumbent) inspect(Int8Array.from(data.incumbent));
+    if (data.near && !state.best) inspect(Int8Array.from(data.near));
+    inspect(plainBoard(p));
+    if (globalUpper < 0) state.proven = true;
+    if (!state.proven) heuristic(p, state, inspect, 3600);
+    if (!state.proven) {
+      state.phase = 'exact';
+      state.report();
+      const iterator = exhaustive(p, state, inspect, upper);
+      const pump = () => {
+        const deadline = performance.now() + 95;
+        while (performance.now() < deadline && !state.proven) {
+          if (iterator.next().done) state.proven = true;
+        }
+        state.report(state.proven ? 'done' : 'progress');
+        if (!state.proven) setTimeout(pump, 0);
+      };
+      pump();
+      return;
+    }
+    state.report('done');
+  };
+}
+
+</script>
+<script>
+(() => {
+  const colors = [
+    { name: '红(弱化)', short: '红', css: 'red' },
+    { name: '绿(生命)', short: '绿', css: 'green' },
+    { name: '黄(辅助)', short: '黄', css: 'yellow' },
+    { name: '橙(攻击)', short: '橙', css: 'orange' }
+  ];
+  const kinds = amplifierKinds;
+  const positions = Array.from({ length: 25 }, (_, i) => i);
+  const index = id => document.getElementById(id);
+  const form = index('settings');
+  const targetFields = index('targets');
+  const board = index('board');
+  const status = index('status');
+  const runNote = index('run-note');
+  const actions = { solve: index('solve'), action: index('action') };
+  const storageKey = 'component-placement-v1';
+  const allAmpIds = () => Array.from({ length: kinds.length * 2 }, (_, id) => id);
+  const initial = () => ({
+    held: allAmpIds(), priority: 'count',
+    colors: [
+      { min: '0', soft: '2', hardCount: '0', hardLevel: '7' },
+      { min: '7', soft: '0', hardCount: '1', hardLevel: '7' },
+      { min: '1', soft: '0', hardCount: '1', hardLevel: '7' },
+      { min: '7', soft: '0', hardCount: '2', hardLevel: '7' }
+    ]
+  });
+
+  function restore() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey));
+      if (saved?.colors?.length === 4 && Array.isArray(saved.held)) {
+        const colors = saved.colors.map(color => {
+          const first = color.rules?.find(rule => Number(rule.count) > 0) ?? color.rules?.[0];
+          return {
+            min: color.min ?? '', soft: color.soft ?? '',
+            hardCount: color.hardCount ?? first?.count ?? '',
+            hardLevel: String(color.hardLevel ?? first?.level ?? 7)
+          };
+        });
+        return { colors, held: saved.held, priority: saved.priority };
+      }
+    } catch {}
+    return initial();
+  }
+
+  let settings = restore();
+  let result = null;
+  let worker = null;
+  let config = null;
+  let layout = null;
+  let renderedBoard = '';
+  let note = null;
+
+  function numberField(color, field, caption, placeholder, value) {
+    const label = colors[color].name + (caption || '最低数量');
+    const fieldGroup = document.createElement('div');
+    fieldGroup.className = 'target-field';
+    const control = document.createElement('div');
+    control.className = 'number-control';
+    const input = document.createElement('input');
+    input.id = 'goal-' + color + '-' + field;
+    input.type = 'number';
+    input.step = '1';
+    input.min = '0';
+    input.max = '7';
+    input.inputMode = 'numeric';
+    input.value = value;
+    input.placeholder = placeholder;
+    input.className = 'setting-input';
+    input.setAttribute('aria-label', label);
+    Object.assign(input.dataset, { color, field });
+
+    if (caption) {
+      const fieldLabel = document.createElement('label');
+      fieldLabel.htmlFor = input.id;
+      fieldLabel.className = 'target-caption';
+      fieldLabel.textContent = caption;
+      fieldGroup.append(fieldLabel);
+    }
+
+    function step(delta) {
+      const value = input.valueAsNumber;
+      if (!Number.isFinite(value) && !input.validity.badInput && delta < 0) return;
+      const rounded = delta > 0 ? Math.floor(value) : Math.ceil(value);
+      const next = Math.max(0, Math.min(7, (Number.isFinite(value) ? rounded : 0) + delta));
+      if (next === value) return;
+      input.value = String(next);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function stepButton(delta) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'number-step';
+      button.tabIndex = -1;
+      button.textContent = delta < 0 ? '−' : '+';
+      button.setAttribute('aria-label', (delta < 0 ? '减少' : '增加') + label);
+      button.onclick = () => {
+        step(delta);
+        input.focus({ preventScroll: true });
+      };
+      return button;
+    }
+
+    const minus = stepButton(-1);
+    const plus = stepButton(1);
+    function syncButtons() {
+      minus.disabled = input.valueAsNumber === 0 || (!input.value && !input.validity.badInput);
+      plus.disabled = input.valueAsNumber === 7;
+    }
+    input.addEventListener('input', syncButtons);
+    input.addEventListener('keydown', event => {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      step(event.key === 'ArrowUp' ? 1 : -1);
+    });
+    syncButtons();
+    control.append(minus, input, plus);
+    fieldGroup.append(control);
+    return fieldGroup;
+  }
+
+  const iconSources = {
+    '水平': 'data:image/webp;base64,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',
+    '垂直': 'data:image/webp;base64,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',
+    '向上': 'data:image/webp;base64,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',
+    '向下': 'data:image/webp;base64,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',
+    '向左': 'data:image/webp;base64,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',
+    '向右': 'data:image/webp;base64,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',
+    '全范围': 'data:image/webp;base64,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',
+    '十字': 'data:image/webp;base64,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',
+    '红': 'data:image/webp;base64,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',
+    '黄': 'data:image/webp;base64,UklGRs4JAABXRUJQVlA4IMIJAAAQKACdASpgAGAAPjEUiEKiISEXi09cIAMEswBcNOBtnyx+7eZtXf77+HONsobzDehvlm+EvqN8wD9WulR5hf29/XT3bf956x/8f6gH9i/xXWs/sr7HPS0/uN6QtZB5Z/d0qlvl1JvlP4Kis+M+UH/McEmAT66frHyTfY/W+zLWhh6q/8vuKJBbgEt0fv263jADBEhL+6qOjOUMGqKeKmGYjmua62f+7SqFihgWm8uTWxFnKRqbpCS/VOcKrr2sBz385A8iBMo3z3icrwYSCnZkMviYnwpfupv7DxZZVzFl3VvLbfDIvpUg8JmBW4TzbPI9rI1djLIiLwFhwpWlLfmc3BvBSaEch/OBJLsdSJN5cuzZ/pie9eeH6l5lTpHOWYIDJBo+rqYwiON1cD38gEKPaYxXeFdon5UkKF/7kcz2C6DodnQ4FAsgAAD+/yqUoLZNnzN/oFxzAmv6gm+yOk3bsfBnNt2vgcUi2pt7t6VEObdFqX48d4msQftgZwyoXE+F34c+yC/nXoE1p5xugQHeCvW0Xll+icKApB2fqCtvvAkodKSZ45nIf3c39dH8skePDo5tpXHFah1SHtIuaeZSdfZyGusaoVU/atYAlqVsj3+RF3KHTJDT4xFiV7I+QDDpBYhFDJSNmMVfCZJg6y+96pFI5yEXP/OLWTubiDvEaSZILmjVKiw2SFTrpeOGGmMhHN6smOOYunkJfTuJ/Y3Rmm/A5YKeVqRqEuIgYVoWENghL2gmRfwwSS/q5DTZOHqC6coqGdFQq0bB+NgNz+Vjew6L2zCub3vptfNh1BBNauZx/S1WB9kcEJFNo9BTBhn0hev/rKl7HvsizR9496S5Bj2zjfgg98d/SZbZIrFEZrxpeEtD7a4EJqnZIkm1bApDzeueMH0k05QQzJPeKNmq/FpVvgbsfWw1Br7qtxLQ/foqux+ukInDX/ON9dhz29lbkH95nrzdJpknm5zb/9S/mFORS13GQFJbu5iTBHP9bl4PoQpedjNJb9WXqDf0lu7nmR94y7t5fA58R4Roba+Qci7Mp7Af3w+dN4eFWeWCFblZKXDe/l3xeIbU9xRU1lBnIJJDVekWhP7YKFD02Z/Qs8j8v/dPOZySKDAdbP/AhvAhEId/3LGG54MqKzC240u3o/uUPn/PMna4l4DINX8aydoEJbzFSCJTyNZAoCeW7nIZyvXQWmXtmZcZexCvCldE/Epkg89AM553hs+4MMllQ/sHQgrwljwPW2POKEVJJBlOsXhoAMvohXs513JYOrzcxKedTtK3TX0kf0z0R8leaitjjw87FAhGgKhda99/uXYo01E5SusRS6ezGbOULbaRaPfHGfQU6W4zB98ia56DcthtR3sPqOrUxhzTjkRF2HrVQ0wQQwuUFF8pQ3fURnDVPbFdyW88loI7iiFWo8J3chTRFWnP+fz6AG4Mu0dO+zGRwC4taomtgxRsx6wjFg/FC3qULxz2cBvh+scdh7MPsNZAZQRJzyI3Co3P52+yrvQgfZNsn+vbM6Q1yTOExtaYQLNlVUS79+N197uIUMcGaKbLOxH2umQngIwi2UImx92RCG6jxA8d/0lqlCqavyFahFB1VU1MY8Pko/KtXZq0BwQk/kcZ/l4Hjy9dlDx9Ztbd5pmHKH/mc/RLoZZvrVd+kezt55yuY8q6IhWsQyAJl3O1e27tKVjM3cKCWfx1t3VS6vbg+G3yyS0R1hPViI+b0Bylk6tP6KozGHQm/OdzWwbgQre0BVNPldkatj+knf8iju2XFAdk7GS8jSgB51pjPHuDUk8J066IJlxPB5C0RoOusD/9U8n+JmDt1pSdauLCkSnMQ8dlJmz9sq9Vcdw3MepQzC1phxtZGXv9s9/ANSGcVTRw3SASBbDya6g+bO13dP1GFcy4As32wvkHK3KGL6cBk0Y3QbqK+CUVGUJ9INgTweh0C7jdEbuLuRcpWch+u6iSTAVDbQwkFvS/VQmzwCXxk6884dZ0Gt9NNsdF4ucbUg8Di/sebBEWlEHVJepazoxpckDMR1fui5peMDLQBJFlfoDRBRNBV1vzWIq/YgYORS1TgKF7l+xD2018MxarhuBqOsftnn+ViyrT25b/Yey2A9fkoIOVTOdIjarIuru6+SIsKOB9tRJ5fnPipSTdNfy8TEPpedh8YtJOl2x3xLUlP8pRoFnjpcCwWnCFdhHLnOYhkrI9+d7nVT02IhKS8VcvKN84w3ki1Qdapnqx5GZxrnpMpFi/OfmRfoXexqh+11selUCFxGlvymkxBt1SibZfB8HmYwt9NjiGiNt/a6Z/m1r9EmgljE5WwG4BdmX8/Uhaph7VvIjHkiFkA1TOtT9M9VUpGOaNV61lKys2Fnjh0sdjF4yW7hYN9wkIG+MUueTjt76TIFBKbl8Bp68fGSePi5Jd3+rcX/59wbcMVbSzG/yH372EmIewwTDsiCy4FoN5/a1OoxNfgXa2bxZBD4CqZz/5VorZeHIP/t4NmvEXuQqdTWnOD+TKydzO7ofGIoG7vQPN9NailRW27crqVfM7QggVe/ajgjRjhsiXO8hQ6re88D5+7kIFKY7hDFK9LvyUWngyOUyGImF25bTos7ZPTPHvuEA/ZcN/HKQJIpPvE92GqQROyRu26GXJiZObdj7mMs2gM/YRdxLuh8PdsqVVVAWG7/ijCJc23xC3QOO3kt5qWiaPrf270uPwPmJhQXkpKzKzkz2TbizilIMeC9M860DGFaVh8sTFNLG8c3bagVqPE3J7ifErFZB5EK+6ZBBQ2m8C5pHQidCfVSSjt3xFas30EKLz/9yCQMkwbahqBmHs2Lb4JMs2hm9L7VuAGKft7pXlz5OeLmKso+4msVqcX/ZJZUGCnWN7WOUGaEOi5WjmWTcv0nkr4MlUxvXw6I3WGUdPqEa9zwKUeei6nVZCiYBao8mvQH095HSDq9zk1ymURnF17RzAbBnkzDduE0x+8RzGAY7dBgTeY8O2HfpGomtp+51gZ5jF9jQ7KCiHp40Py8l5Yn5hHYnMNoQZQjwDnI+OPsGx6h8aB35HMvGeKBZrQb2NQLD4kvTG+z3KJew6xiwQ5+Jqskf8c1YYHjwGofBWqVhfm6nhrhYd8H1US9s96Iycw5+dpNDHC5dRfpbe6qaEl/WKB49S5uL0Uc80HVQUY8xiI7hBxEzA2o5gcTXMS++dJod8c7uxNg03I64s+fycD0jFTbX2ibYQcIf1uRGU985CdpvDzzHJ+GBr6zoeWUdBPk8MgFVQwUJ3Vfzd2+6k8l7rgQTtRzSUNG1XtvWU/BAOmJkglZmWYq1+rSnJdVHlz6J3bQAAAA==',
+    '绿': 'data:image/webp;base64,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',
+    '橙': 'data:image/webp;base64,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'
+  };
+  function itemIcon(name) {
+    return '<img class="item-icon" alt="" src="' + iconSources[name] + '">';
+  }
+
+  const colorOrder = [3, 1, 2, 0];
+  function renderTargets() {
+    targetFields.replaceChildren();
+    colorOrder.forEach(id => {
+      const color = colors[id];
+      const data = settings.colors[id];
+      const row = document.createElement('div');
+      row.className = 'target-row';
+      row.innerHTML = '<div class="color-name">' + itemIcon(color.short)
+        + color.name + '</div>';
+      function group(title, style, ...fields) {
+        const section = document.createElement('fieldset');
+        section.className = 'target-group ' + style;
+        const legend = document.createElement('legend');
+        legend.textContent = title;
+        const contents = document.createElement('div');
+        contents.className = 'target-fields';
+        contents.append(...fields);
+        section.append(legend, contents);
+        return section;
+      }
+      row.append(
+        group('最低数量', 'minimum', numberField(id, 'min', '', '—', data.min)),
+        group('等级要求', 'required',
+          numberField(id, 'hardCount', '几个组件', '0', data.hardCount),
+          numberField(id, 'hardLevel', '至少几级', '', data.hardLevel)),
+        group('尽量升高', 'extra', numberField(id, 'soft', '额外几个', '0', data.soft))
+      );
+      targetFields.append(row);
+    });
+  }
+
+  function renderInventory() {
+    index('inventory').innerHTML = kinds.map((kind, type) =>
+      '<div class="stock-row"><div class="kind-name">' + itemIcon(kind.name) + kind.name + '</div><span class="stock-power">+' + kind.power + ' 级</span>'
+        + [1, 2].map(distance => {
+          const id = type * 2 + distance - 1;
+          return '<label class="stock-toggle"><input type="checkbox" data-amp="' + id
+            + '" aria-label="' + kind.name + ' ' + distance + ' 格版"' + (settings.held.includes(id) ? ' checked' : '') + '></label>';
+        }).join('') + '</div>').join('');
+  }
+
+  function renderForm() {
+    renderTargets();
+    renderInventory();
+    index('priority').value = settings.priority;
+  }
+
+  function validate() {
+    function integer(value, label, required = false) {
+      if (value === '' && !required) return 0;
+      const n = Number(value);
+      if (value === '' || !Number.isInteger(n) || n < 0 || n > 7) throw new Error(label + '请填写 0 到 7 的整数。');
+      return n;
+    }
+    let needed = 0;
+    const requirements = settings.colors.map((entry, id) => {
+      const label = colors[id].name;
+      const min = integer(entry.min, label + '最低数量');
+      const soft = integer(entry.soft, label + '尽量升满的数量');
+      const hardCount = integer(entry.hardCount, label + '有等级要求的组件数量');
+      const hardLevel = integer(entry.hardLevel, label + '要求的等级', hardCount > 0);
+      if (hardCount + soft > 7) throw new Error(label + '有等级要求的组件和额外升高的组件数量合计超过了 7 个。');
+      needed += Math.max(min, hardCount + soft);
+      return { min, soft, hard: Array(hardCount).fill(hardLevel) };
+    });
+    if (needed > 25) throw new Error('各颜色合计至少需要 ' + needed + ' 个组件，棋盘只有 25 格。');
+    return { colors: requirements, held: settings.held.slice(), priority: settings.priority };
+  }
+
+  function setStatus(label, kind = '') {
+    if (status.textContent !== label) status.textContent = label;
+    status.dataset.kind = kind;
+  }
+
+  function setNote(message, kind = '') {
+    if (runNote.textContent !== message) runNote.textContent = message;
+    runNote.dataset.kind = kind;
+  }
+
+  function save() {
+    try { localStorage.setItem(storageKey, JSON.stringify(settings)); } catch {}
+  }
+
+  function changed() {
+    if (worker) worker.terminate();
+    worker = null;
+    result = null;
+    config = null;
+    note = null;
+    save();
+    refresh();
+  }
+
+  function updateSetting(event) {
+    const target = event.target;
+    if (target.dataset.color !== undefined) {
+      const entry = settings.colors[Number(target.dataset.color)];
+      const field = target.dataset.field;
+      const value = target.validity.badInput ? 'invalid' : target.value;
+      entry[field] = value;
+    } else if (target.dataset.amp !== undefined) {
+      const id = Number(target.dataset.amp);
+      const held = new Set(settings.held);
+      if (target.checked) held.add(id);
+      else held.delete(id);
+      settings.held = [...held].sort((a, b) => a - b);
+    } else if (target.name === 'priority') {
+      settings[target.name] = target.value;
+    } else return;
+    changed();
+  }
+
+  function describeAmp(tile) {
+    const id = tile - 4;
+    const type = id >> 1;
+    return { ...kinds[type], type, distance: id % 2 + 1 };
+  }
+
+  function analyze(current) {
+    const tiles = current.board;
+    const boosts = positions.map(pos => tiles[pos] >= 4 ? describeAmp(tiles[pos]) : null);
+    const coverage = boosts.map((amp, from) => amp
+      ? positions.filter(to => coversCell(amp.type, amp.distance, from, to)) : []);
+    const sources = positions.map(to => positions.filter(from => coverage[from].includes(to)));
+    const raw = sources.map(from => from.reduce((sum, pos) => sum + boosts[pos].power, 0));
+    const levels = raw.map(level => Math.min(level, 7));
+    const roles = Array(25).fill(null);
+    const stats = config.colors.map((counts, color) => {
+      const pieces = positions.filter(pos => tiles[pos] === color)
+        .sort((a, b) => levels[b] - levels[a] || a - b);
+      const stats = { hard: counts.hard.length, byLevel: Array(8).fill(0) };
+      for (const pos of pieces) stats.byLevel[levels[pos]]++;
+      const uncovered = [];
+      for (const target of counts.hard.slice().sort((a, b) => b - a)) {
+        const i = pieces.findLastIndex(pos => levels[pos] >= target);
+        if (i < 0) uncovered.push(target);
+        else {
+          roles[pieces.splice(i, 1)[0]] = { kind: 'hard', level: target };
+        }
+      }
+      for (const target of uncovered) {
+        if (!pieces.length) break;
+        roles[pieces.shift()] = { kind: 'miss', level: target };
+      }
+      for (const pos of pieces.slice(0, counts.soft)) {
+        roles[pos] = { kind: 'soft', level: levels[pos] };
+      }
+      return stats;
+    });
+    return { tiles, boosts, levels, roles, stats };
+  }
+
+  function coordinate(pos) {
+    return '第 ' + (Math.floor(pos / 5) + 1) + ' 行第 ' + (pos % 5 + 1) + ' 列';
+  }
+
+  function roleDescription(role) {
+    if (role.kind === 'hard') return '等级要求为 ' + role.level + ' 级';
+    if (role.kind === 'miss') return '未达到 ' + role.level + ' 级目标';
+    return '尽量升满';
+  }
+
+  function renderBoard(current) {
+    const signature = current ? current.board.join(',') : '-';
+    if (renderedBoard === signature) return;
+    renderedBoard = signature;
+    layout = current ? analyze(current) : null;
+    const cells = ['<span class="axis" aria-hidden="true"></span>'];
+    for (let i = 1; i <= 5; i++) cells.push('<span class="axis" aria-hidden="true">' + i + '</span>');
+    for (const pos of positions) {
+      if (pos % 5 === 0) cells.push('<span class="axis" aria-hidden="true">' + (pos / 5 + 1) + '</span>');
+      const value = layout ? layout.tiles[pos] : -1;
+      const label = coordinate(pos);
+      let html = '';
+      let css = '';
+      let detail = '空格';
+      if (value >= 4) {
+        const amp = layout.boosts[pos];
+        css = 'amplifier';
+        html = itemIcon(amp.name) + '<span class="tile-caption">'
+          + amp.short + ' · ' + amp.distance + '格</span>';
+        detail = amp.name + ' ' + amp.distance + ' 格增幅器，+' + amp.power + ' 级';
+      } else if (value >= 0) {
+        const color = colors[value];
+        const level = layout.levels[pos];
+        const role = layout.roles[pos];
+        css = color.css;
+        if (pos % 5 < 4 && layout.tiles[pos + 1] === value) css += ' connected-right';
+        if (pos < 20 && layout.tiles[pos + 5] === value) css += ' connected-down';
+        html = '<span class="tile-level">' + level + '</span><span class="tile-caption">' + color.short + '</span>';
+        detail = color.name + '组件 ' + level + ' 级';
+        if (role) {
+          html += '<span class="role-mark ' + role.kind + '">' + ({hard: '必', soft: '优', miss: '缺'})[role.kind] + '</span>';
+          detail += '，' + roleDescription(role);
+        }
+      }
+      cells.push('<div role="img" aria-label="' + label + '，' + detail + '" class="tile ' + css + '">' + html + '</div>');
+    }
+    board.innerHTML = cells.join('');
+  }
+
+  function refreshOverview(current) {
+    const open = Boolean(current);
+    index('overview').hidden = !open;
+    if (!open) return;
+    const stats = layout.stats;
+    const hard = stats.reduce((sum, entry) => sum + entry.hard, 0);
+    const soft = config.colors.reduce((sum, entry) => sum + entry.soft, 0);
+    index('parts-metric').textContent = current.count + ' / 25';
+    index('hard-metric').textContent = hard ? (hard - current.missing) + ' / ' + hard : '—';
+    index('soft-metric').textContent = soft ? current.soft + ' / ' + soft * 7 : '—';
+    index('summary').innerHTML = colorOrder.map(id => {
+      const color = colors[id];
+      const cells = stats[id].byLevel.slice().reverse().map(count =>
+        count ? '<td>' + count + '</td>' : '<td class="empty">0</td>');
+      return '<tr><th scope="row"><span class="color-dot ' + color.css + '"></span>'
+        + color.name + '</th>' + cells.join('') + '</tr>';
+    }).join('');
+  }
+
+  function refresh() {
+    const current = result?.best || result?.near || null;
+    const goalBadge = index('goal-met');
+    goalBadge.classList.toggle('unmet', !result?.best);
+    goalBadge.textContent = result?.best ? '已满足要求' : '未满足要求';
+    renderBoard(current);
+    refreshOverview(current);
+    board.classList.toggle('is-searching', Boolean(worker) && result?.phase !== 'exact');
+    actions.solve.disabled = Boolean(worker);
+    actions.action.hidden = !worker;
+    if (note) {
+      setStatus(note.title, 'warn');
+      setNote(note.detail, 'warn');
+    } else if (worker) {
+      setStatus(result?.phase === 'exact' ? '正在验证' : '正在计算', 'busy');
+      if (result?.phase === 'exact') {
+        const scope = result.testing === null ? '正在筛选需要验证的增幅器组合'
+          : '正在检查使用 ' + result.testing + ' 个增幅器的摆法';
+        const goal = result.best
+          ? '是否更优'
+          : '是否满足要求';
+        setNote(scope + goal, 'verify');
+      } else {
+        setNote(result?.best
+          ? '已找到达标方案，正在尝试提高方案得分'
+          : '正在尝试不同的摆放组合', 'search');
+      }
+    } else if (result?.proven) {
+      setStatus(result.best ? '已证最优' : '无可行解', result.best ? 'good' : 'warn');
+      setNote(result.best ? '已验证当前配置下的最优方案。' : '已验证这份配置无法满足全部等级要求和数量条件。', result.best ? '' : 'warn');
+    } else if (result) {
+      setStatus('已停止计算');
+      setNote(result.best ? '已保留当前最佳方案，尚未证实最优。' : '尚未找到达标方案。');
+    } else {
+      setStatus('等待计算');
+      setNote('修改配置后点击「计算方案」。');
+    }
+  }
+
+  function start() {
+    if (worker) return;
+    config = null;
+    note = null;
+    try {
+      config = validate();
+    } catch (error) {
+      result = null;
+      note = { title: '请检查配置', detail: error.message };
+      refresh();
+      return;
+    }
+    const previous = result;
+    const source = '(' + solverWorker.toString() + ')(' + coversCell.toString() + ', ' + JSON.stringify(kinds) + ');';
+    const workerUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+    try {
+      worker = new Worker(workerUrl);
+    } catch {
+      note = { title: '无法启动计算', detail: '请下载文件后，用 Chrome、Edge 或 Firefox 打开。' };
+    } finally {
+      URL.revokeObjectURL(workerUrl);
+    }
+    if (!worker) {
+      refresh();
+      return;
+    }
+    const running = worker;
+    running.onmessage = ({ data }) => {
+      if (worker !== running) return;
+      result = data;
+      if (data.type === 'done') {
+        running.terminate();
+        worker = null;
+      }
+      refresh();
+    };
+    running.onerror = () => {
+      if (worker !== running) return;
+      running.terminate();
+      worker = null;
+      note = { title: '计算中断', detail: '请重新计算。如果仍然中断，请下载文件后在浏览器打开。' };
+      refresh();
+    };
+    running.postMessage({
+      config,
+      seed: previous ? Date.now() >>> 0 : 3623,
+      incumbent: previous?.best?.board, near: previous?.near?.board
+    });
+    refresh();
+  }
+
+  async function copyPlan() {
+    if (!layout) return;
+    const lines = [];
+    const current = result.best || result.near;
+    if (!result.best) lines.push('接近目标的方案，尚未达标');
+    for (let row = 0; row < 5; row++) {
+      const line = positions.slice(row * 5, row * 5 + 5).map(pos => {
+        const tile = layout.tiles[pos];
+        if (tile < 0) return '空';
+        if (tile < 4) return colors[tile].short + layout.levels[pos];
+        const amp = layout.boosts[pos];
+        return amp.name + amp.distance + '格';
+      });
+      lines.push('第 ' + (row + 1) + ' 行　' + line.join(' | '));
+    }
+    lines.push('组件 ' + current.count + ' 个 · 满足等级要求 ' + (config.colors.flatMap(c => c.hard).length - current.missing) + ' 个');
+    const text = lines.join('\n');
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch {
+      const field = document.createElement('textarea');
+      field.value = text;
+      document.body.append(field);
+      field.select();
+      try { copied = document.execCommand('copy'); } catch {}
+      field.remove();
+    }
+    const button = index('copy');
+    button.textContent = copied ? '已复制' : '复制失败';
+    setTimeout(() => { button.textContent = '复制方案'; }, 1600);
+  }
+
+  form.addEventListener('input', updateSetting);
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    start();
+    if (matchMedia('(max-width: 860px)').matches) {
+      index('board-title').scrollIntoView({ block: 'start', behavior: 'instant' });
+    }
+  });
+  index('select-all-amps').onclick = () => {
+    settings.held = allAmpIds();
+    renderInventory();
+    changed();
+  };
+  // 按界面上的橙、绿、黄、红排列，每项为最低数量、等级要求数量、额外升高数量。
+  const presets = {
+    healthIdle:  [[7, 2, 0], [7, 1, 0], [2, 1, 0], [2, 2, 0]],
+    healthArena: [[7, 2, 0], [7, 1, 0], [5, 2, 0], [0, 0, 0]],
+    attackIdle:  [[7, 3, 0], [0, 0, 0], [7, 1, 0], [0, 2, 1]],
+    attackArena: [[7, 3, 0], [0, 0, 0], [7, 3, 0], [0, 0, 0]]
+  };
+  document.querySelectorAll('[data-preset]').forEach(button => {
+    button.onclick = () => {
+      presets[button.dataset.preset].forEach(([min, hardCount, soft], row) => {
+        settings.colors[colorOrder[row]] = {
+          min: String(min), hardCount: String(hardCount), hardLevel: '7', soft: String(soft)
+        };
+      });
+      changed();
+      renderTargets();
+      start();
+    };
+  });
+  actions.action.onclick = () => {
+    worker.terminate();
+    worker = null;
+    if (!result) result = { best: null, near: null, proven: false };
+    refresh();
+  };
+  index('copy').onclick = copyPlan;
+  renderForm();
+  refresh();
+})();
+
+</script>
+</body>
+</html>
