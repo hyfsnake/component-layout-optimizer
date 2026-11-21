@@ -85,7 +85,8 @@ h2 { font-size: 1.3125rem; font-weight: 720; letter-spacing: -.022em; }
 .target-group legend { padding: 0 3px; font-size: 0.875rem; font-weight: 700; color: #344965; }
 .target-group.required { border-color: #ccdafa; background: #f2f6ff; }
 .target-group.extra { border-color: #cce6db; background: #f2f9f5; }
-.target-fields { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 5px; }
+.target-fields { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 5px; }
+.target-group.required .target-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .stock-head {
   color: #53627a;
   background: #f2f5f9;
@@ -121,7 +122,7 @@ select {
   font-variant-numeric: tabular-nums;
 }
 .target-caption, .target-group.minimum .target-field::before { display: block; margin-bottom: 3px; font-size: 0.8125rem; }
-.target-caption { color: #52627a; font-weight: 650; }
+.target-caption { grid-column: 1 / -1; color: #52627a; font-weight: 650; }
 .number-control {
   display: grid;
   grid-template-columns: minmax(20px, .7fr) minmax(18px, 1fr) minmax(20px, .7fr);
@@ -154,7 +155,8 @@ select {
 }
 @container (max-width: 350px) {
   .target-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-  .target-group.extra .target-field { display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
+  .target-group.extra .target-fields { grid-template-columns: 1fr 1fr; align-items: center; }
+  .target-group.extra .target-caption { grid-column: auto; margin-bottom: 0; }
 }
 .stock-table { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 8px; }
 .stock-head, .stock-row { grid-template-columns: minmax(70px, 1.5fr) repeat(2, minmax(22px, 1fr)); gap: 4px; padding-inline: 4px; }
@@ -1115,9 +1117,25 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
   let renderedBoard = '';
   let note = null;
 
-  function numberField(color, field, caption) {
+  function flashSettingValue(display) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (const animation of display.getAnimations()) animation.cancel();
+    display.animate(
+      [{ backgroundColor: '#bfd5ff' }, { backgroundColor: '#fff' }],
+      { duration: 280, easing: 'ease-out' }
+    );
+  }
+
+  function settingValueText(entry, field) {
+    const stored = entry[field];
+    const value = Number(stored);
+    const hasValue = Number.isFinite(value) && (stored !== '' || field !== 'hardLevel');
+    return hasValue ? String(value) : '—';
+  }
+
+  function numberField(color, field, name, updateCaption) {
     const entry = settings.colors[color];
-    const label = colors[color].name + (caption || '最低数量');
+    const label = colors[color].name + name;
     const fieldGroup = document.createElement('div');
     fieldGroup.className = 'target-field';
     const control = document.createElement('div');
@@ -1125,13 +1143,6 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
     const display = document.createElement('output');
     display.className = 'setting-value';
     display.setAttribute('aria-label', label);
-
-    if (caption) {
-      const fieldLabel = document.createElement('span');
-      fieldLabel.className = 'target-caption';
-      fieldLabel.textContent = caption;
-      fieldGroup.append(fieldLabel);
-    }
 
     function stepButton(delta) {
       const button = document.createElement('button');
@@ -1144,6 +1155,7 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
         const rounded = delta > 0 ? Math.floor(current) : Math.ceil(current);
         entry[field] = String(Math.max(0, Math.min(7, rounded + delta)));
         syncValue();
+        updateCaption?.();
         changed();
       };
       return button;
@@ -1152,10 +1164,10 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
     const minus = stepButton(-1);
     const plus = stepButton(1);
     function syncValue() {
-      const stored = entry[field];
-      const current = Number(stored);
-      const hasValue = Number.isFinite(current) && (stored !== '' || field !== 'hardLevel');
-      display.value = hasValue ? String(current) : '—';
+      const current = Number(entry[field]);
+      const value = settingValueText(entry, field);
+      if (display.isConnected && display.value !== value) flashSettingValue(display);
+      display.value = value;
       minus.disabled = current === 0;
       plus.disabled = current === 7;
     }
@@ -1185,6 +1197,7 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
 
   const colorOrder = [3, 1, 2, 0];
   function renderTargets() {
+    const previousValues = Array.from(targetFields.querySelectorAll('.setting-value'), display => display.value);
     targetFields.replaceChildren();
     colorOrder.forEach(id => {
       const color = colors[id];
@@ -1192,25 +1205,42 @@ function solverWorker(covered = coversCell, kinds = amplifierKinds) {
       row.className = 'target-row';
       row.innerHTML = '<div class="color-name">' + itemIcon(color.short)
         + color.name + '</div>';
-      function group(title, style, ...fields) {
+      const entry = settings.colors[id];
+      function group(title, style, captionText, ...fields) {
         const section = document.createElement('fieldset');
         section.className = 'target-group ' + style;
         const legend = document.createElement('legend');
         legend.textContent = title;
         const contents = document.createElement('div');
         contents.className = 'target-fields';
-        contents.append(...fields);
+
+        let updateCaption;
+        if (captionText) {
+          const caption = document.createElement('span');
+          caption.className = 'target-caption';
+          updateCaption = () => { caption.textContent = captionText(); };
+          updateCaption();
+          contents.append(caption);
+        }
+
+        contents.append(...fields.map(([field, name]) => numberField(id, field, name, updateCaption)));
         section.append(legend, contents);
         return section;
       }
       row.append(
-        group('最低数量', 'minimum', numberField(id, 'min', '')),
+        group('最低数量', 'minimum', null, ['min', '最低数量']),
         group('等级要求', 'required',
-          numberField(id, 'hardCount', '几个组件'),
-          numberField(id, 'hardLevel', '至少几级')),
-        group('尽量升高', 'extra', numberField(id, 'soft', '额外几个'))
+          () => '要求' + settingValueText(entry, 'hardCount') + '个' + settingValueText(entry, 'hardLevel') + '级',
+          ['hardCount', '几个组件'], ['hardLevel', '至少几级']),
+        group('尽量升高', 'extra',
+          () => '额外升' + settingValueText(entry, 'soft') + '个', ['soft', '额外几个'])
       );
       targetFields.append(row);
+    });
+
+    targetFields.querySelectorAll('.setting-value').forEach((display, index) => {
+      const previous = previousValues[index];
+      if (previous !== undefined && previous !== display.value) flashSettingValue(display);
     });
   }
 
